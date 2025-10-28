@@ -239,11 +239,10 @@ app.post("/api/chatrooms/:roomId/read", async (req, res) => {
   }
 });
 
-// ------------------ SOCKET.IO ------------------
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // In production, specify your frontend URL(s)
+    origin: "*", // In production, set your frontend URLs
     methods: ["GET", "POST"],
   },
 });
@@ -251,61 +250,52 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log(`🟢 New client connected: ${socket.id}`);
 
+  // Join a chat room
   socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
     console.log(`✔️ Socket ${socket.id} joined room ${roomId}`);
   });
 
+  // Send a message
   socket.on("sendMessage", async ({ roomId, message, sender }) => {
     try {
-      // Validate roomId and userId
-      if (!mongoose.Types.ObjectId.isValid(roomId)) {
-        console.error("Invalid roomId format");
+      if (!mongoose.Types.ObjectId.isValid(roomId) || !mongoose.Types.ObjectId.isValid(sender)) {
+        console.error("Invalid roomId or sender format");
         return;
       }
-      if (!mongoose.Types.ObjectId.isValid(sender)) {
-        console.error("Invalid sender format");
-        return;
-      }
-      const room = await ChatRoom.findById(roomId);
 
-      if (!room) {
-        console.error("ChatRoom not found for id:", roomId);
-        return;
-      }
-      if (!sender) {
-        console.error("Sender Id wasn't specified, check that variable")
-        return
-      }
-      //  const newMessage = new Message({ chatroom: room._id, sender, message });
-      const newMessage = new Message({roomId: room._id, sender, message });
+      const room = await ChatRoom.findById(roomId);
+      if (!room) return console.error("ChatRoom not found for id:", roomId);
+
+      // Save the new message
+      const newMessage = new Message({ roomId: room._id, sender, message });
       await newMessage.save();
 
-      // Update lastMessage field in the chat room
-      room.lastMessage = message;
-      room.updatedAt = Date.now();
+      // Update lastMessage & updatedAt safely
+      await ChatRoom.findByIdAndUpdate(roomId, {
+        lastMessage: message,
+        updatedAt: Date.now(),
+      });
 
-      // Increment unread count for other members
-      room.members.forEach(async (memberId) => {
-          if (memberId.toString() !== sender.toString()) {
-              let unreadField = `unreadCount.${memberId}`;
-              await ChatRoom.findByIdAndUpdate(
-                roomId,
-                { $inc: { [unreadField]: 1 } }  // Increment unread count for this member
-              );
-            }
-        });
+      // Increment unread count for all other members
+      await Promise.all(
+        room.members
+          .filter((memberId) => memberId.toString() !== sender.toString())
+          .map((memberId) => {
+            const unreadField = `unreadCount.${memberId}`;
+            return ChatRoom.findByIdAndUpdate(roomId, { $inc: { [unreadField]: 1 } });
+          })
+      );
 
-      await room.save()
-
-      // Emit the message to all clients in the room
+      // Emit message to all clients in the room
       io.to(roomId).emit("receiveMessage", {
-        message: message,
-        sender: sender,
+        message,
+        sender,
         createdAt: newMessage.createdAt,
       });
+
     } catch (error) {
-      console.error("❌ Error saving message:", error);
+      console.error("❌ Error sending message:", error);
     }
   });
 
@@ -313,6 +303,86 @@ io.on("connection", (socket) => {
     console.log(`🔴 Client disconnected: ${socket.id}`);
   });
 });
+
+app.get("/",(req,res)=>{
+  res.send("the app is runnig")
+
+})
+
+// ------------------ SOCKET.IO ------------------
+
+// const io = new Server(server, {
+//   cors: {
+//     origin: "*", // In production, specify your frontend URL(s)
+//     methods: ["GET", "POST"],
+//   },
+// });
+
+// io.on("connection", (socket) => {
+//   console.log(`🟢 New client connected: ${socket.id}`);
+
+//   socket.on("joinRoom", (roomId) => {
+//     socket.join(roomId);
+//     console.log(`✔️ Socket ${socket.id} joined room ${roomId}`);
+//   });
+
+//   socket.on("sendMessage", async ({ roomId, message, sender }) => {
+//     try {
+//       // Validate roomId and userId
+//       if (!mongoose.Types.ObjectId.isValid(roomId)) {
+//         console.error("Invalid roomId format");
+//         return;
+//       }
+//       if (!mongoose.Types.ObjectId.isValid(sender)) {
+//         console.error("Invalid sender format");
+//         return;
+//       }
+//       const room = await ChatRoom.findById(roomId);
+
+//       if (!room) {
+//         console.error("ChatRoom not found for id:", roomId);
+//         return;
+//       }
+//       if (!sender) {
+//         console.error("Sender Id wasn't specified, check that variable")
+//         return
+//       }
+//       //  const newMessage = new Message({ chatroom: room._id, sender, message });
+//       const newMessage = new Message({roomId: room._id, sender, message });
+//       await newMessage.save();
+
+//       // Update lastMessage field in the chat room
+//       room.lastMessage = message;
+//       room.updatedAt = Date.now();
+
+//       // Increment unread count for other members
+//       room.members.forEach(async (memberId) => {
+//           if (memberId.toString() !== sender.toString()) {
+//               let unreadField = `unreadCount.${memberId}`;
+//               await ChatRoom.findByIdAndUpdate(
+//                 roomId,
+//                 { $inc: { [unreadField]: 1 } }  // Increment unread count for this member
+//               );
+//             }
+//         });
+
+//       await room.save()
+
+//       // Emit the message to all clients in the room
+//       io.to(roomId).emit("receiveMessage", {
+//         message: message,
+//         sender: sender,
+//         createdAt: newMessage.createdAt,
+//       });
+//     } catch (error) {
+//       console.error("❌ Error saving message:", error);
+//     }
+//   });
+
+//   socket.on("disconnect", () => {
+//     console.log(`🔴 Client disconnected: ${socket.id}`);
+//   });
+// });
 
 const PORT = process.env.PORT || 5000;
 

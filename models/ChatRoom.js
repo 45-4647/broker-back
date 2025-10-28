@@ -5,6 +5,7 @@ const chatRoomSchema = new mongoose.Schema(
     members: {
       type: [String],
       required: true,
+      ref:"User"
     },
     lastMessage: {
       type: String,
