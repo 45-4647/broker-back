@@ -18,7 +18,7 @@ import express from "express"
 
 dotenv.config();
 
-const app = createApp();
+const app = express();
 const server = http.createServer(app);
 
 // Middlewares
