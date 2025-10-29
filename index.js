@@ -13,7 +13,7 @@ import Message from "./models/Message.js"; // Make sure these paths are correct
 import ChatRoom from "./models/ChatRoom.js"; // Make sure these paths are correct
 import User from "./models/User.js";
 import Product from "./models/Product.js";
-import { createApp } from "./app.js";
+// import { createApp } from "./app.js";
 import express from "express"
 
 dotenv.config();
