@@ -305,7 +305,7 @@ io.on("connection", (socket) => {
 });
 
 app.get("/",(req,res)=>{
-  res.send("the app is runnig")
+  res.send("the app is runnig on port 4000")
 
 })
 
