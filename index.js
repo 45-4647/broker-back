@@ -1,5 +1,5 @@
 
-import express from "express";
+// import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import http from "http";
@@ -13,10 +13,12 @@ import Message from "./models/Message.js"; // Make sure these paths are correct
 import ChatRoom from "./models/ChatRoom.js"; // Make sure these paths are correct
 import User from "./models/User.js";
 import Product from "./models/Product.js";
+import { createApp } from "./app.js";
+import express from "express"
 
 dotenv.config();
 
-const app = express();
+const app = createApp();
 const server = http.createServer(app);
 
 // Middlewares
@@ -305,85 +307,16 @@ io.on("connection", (socket) => {
 });
 
 app.get("/",(req,res)=>{
-  res.send("the app is runnig on port 4000")
+  res.send("the app port 40000")
 
 })
 
-// ------------------ SOCKET.IO ------------------
 
-// const io = new Server(server, {
-//   cors: {
-//     origin: "*", // In production, specify your frontend URL(s)
-//     methods: ["GET", "POST"],
-//   },
-// });
 
-// io.on("connection", (socket) => {
-//   console.log(`🟢 New client connected: ${socket.id}`);
+if (process.env.NODE_ENV !== "test") {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
+// const PORT = process.env.PORT || 5000;
 
-//   socket.on("joinRoom", (roomId) => {
-//     socket.join(roomId);
-//     console.log(`✔️ Socket ${socket.id} joined room ${roomId}`);
-//   });
-
-//   socket.on("sendMessage", async ({ roomId, message, sender }) => {
-//     try {
-//       // Validate roomId and userId
-//       if (!mongoose.Types.ObjectId.isValid(roomId)) {
-//         console.error("Invalid roomId format");
-//         return;
-//       }
-//       if (!mongoose.Types.ObjectId.isValid(sender)) {
-//         console.error("Invalid sender format");
-//         return;
-//       }
-//       const room = await ChatRoom.findById(roomId);
-
-//       if (!room) {
-//         console.error("ChatRoom not found for id:", roomId);
-//         return;
-//       }
-//       if (!sender) {
-//         console.error("Sender Id wasn't specified, check that variable")
-//         return
-//       }
-//       //  const newMessage = new Message({ chatroom: room._id, sender, message });
-//       const newMessage = new Message({roomId: room._id, sender, message });
-//       await newMessage.save();
-
-//       // Update lastMessage field in the chat room
-//       room.lastMessage = message;
-//       room.updatedAt = Date.now();
-
-//       // Increment unread count for other members
-//       room.members.forEach(async (memberId) => {
-//           if (memberId.toString() !== sender.toString()) {
-//               let unreadField = `unreadCount.${memberId}`;
-//               await ChatRoom.findByIdAndUpdate(
-//                 roomId,
-//                 { $inc: { [unreadField]: 1 } }  // Increment unread count for this member
-//               );
-//             }
-//         });
-
-//       await room.save()
-
-//       // Emit the message to all clients in the room
-//       io.to(roomId).emit("receiveMessage", {
-//         message: message,
-//         sender: sender,
-//         createdAt: newMessage.createdAt,
-//       });
-//     } catch (error) {
-//       console.error("❌ Error saving message:", error);
-//     }
-//   });
-
-//   socket.on("disconnect", () => {
-//     console.log(`🔴 Client disconnected: ${socket.id}`);
-//   });
-// });
-
-const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
