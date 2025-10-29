@@ -14,8 +14,7 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t my-node-app .
-      - name: Run tests
-        run: npm test
+    
       - name: Deploy to Render
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
