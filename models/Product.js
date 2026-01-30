@@ -10,6 +10,7 @@ const productSchema = new mongoose.Schema(
     location: { type: String, required: true },
     description: { type: String },
     images: [{ type: String }],
+    imagePublicIds: [String], // Cloudinary URLs   
     seller: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
