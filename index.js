@@ -35,7 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 
 // Serve static files
-app.use("/uploads", express.static("uploads"));
+// app.use("/uploads", express.static("uploads"));
 
 // ------------------ CHAT ROUTES ------------------
 
