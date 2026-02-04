@@ -144,8 +144,7 @@ app.get("/api/messages/:roomId", async (req, res) => {
       return res.status(404).json({ message: "Chatroom not found" });
     }
 
-    const messages = await Message.find({ chatroom: room._id }) // Use chatroom, not roomId
-      .sort({ createdAt: 1 }); // Sort by oldest first
+    const messages = await Message.find({ chatroom: room._id }).populate("sender", "name email").sort({ createdAt: 1 }); // Sort by oldest first
 
     console.log(`✔️ Fetched ${messages.length} messages for room: ${roomId}`);
     res.json(messages);

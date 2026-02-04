@@ -4,6 +4,10 @@ import { CloudinaryStorage } from "multer-storage-cloudinary";
 import cloudinary from "../config/cloudinary.js";
 import Product from "../models/Product.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import dotenv from "dotenv";  
+import { OpenAI } from "openai";
+dotenv.config();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const router = express.Router();
 
@@ -20,14 +24,74 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* ---------------- GET ALL PRODUCTS ---------------- */
+
+
+
+
+// GET all products with AI recommendations
 router.get("/", async (req, res) => {
   try {
-    const products = await Product.find().populate("seller", "name email");
-    res.json(products);
+    const products = await Product.find()
+      .populate("seller", "name email")
+      .lean();
+
+    let recommendedProducts = [];
+
+    try {
+      // === AI RECOMMENDATION TRY ===
+      const prompt = `
+        From the list below, select the 5 most relevant products.
+        Return only a JSON array of product IDs.
+
+        Products:
+        ${JSON.stringify(
+          products.map(p => ({
+            _id: p._id,
+            title: p.title || p.name,
+            description: p.description,
+            category: p.category
+          }))
+        )}
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 200
+      });
+
+      const ids = JSON.parse(
+        response.choices[0].message.content.trim()
+      );
+
+      recommendedProducts = products.filter(p =>
+        ids.includes(p._id.toString())
+      );
+
+    } catch (aiError) {
+      console.warn("⚠️ AI unavailable, using fallback logic");
+
+      // === FALLBACK LOGIC ===
+      recommendedProducts = products
+        .filter(p => p.views > 10 || p.createdAt)
+        .slice(0, 5);
+    }
+
+    res.json({
+      allProducts: products,
+      recommended: recommendedProducts
+    });
+
   } catch (error) {
-    res.status(500).json({ message: "Error fetching products", error });
+    console.error(error);
+    res.status(500).json({
+      message: "Failed to fetch products"
+    });
   }
 });
+
+
+
 
 /* ---------------- GET SINGLE PRODUCT ---------------- */
 router.get("/detail/:id", async (req, res) => {
