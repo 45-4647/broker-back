@@ -43,21 +43,21 @@ app.use("/api/products", productRoutes);
 
 // Create or get a chat room between two users
 app.post("/api/chatroom", async (req, res) => {
-  const { user1, user2 } = req.body;
+  const { user1, user2, productId } = req.body;
 
   try {
-    // Check if the chatroom already exists
-    let room = await ChatRoom.findOne({ members: { $all: [user1, user2] } });
+    // scope room to the specific product so different products get separate chats
+    let room = await ChatRoom.findOne({
+      members: { $all: [user1, user2] },
+      productId: productId || null,
+    });
 
     if (!room) {
-      // Create new chatroom
-      room = new ChatRoom({ members: [user1, user2] });
-
-      //Initial unread settings for new members
-        room.members.forEach(memberId => {
-          room.unreadCount[memberId] = 0;
-         });
-         await room.save();
+      room = new ChatRoom({ members: [user1, user2], productId: productId || null });
+      room.members.forEach(memberId => {
+        room.unreadCount[memberId] = 0;
+      });
+      await room.save();
       console.log(`✔️ New chatroom created with ID: ${room._id}`);
     }
 
@@ -153,8 +153,9 @@ app.get("/api/chatrooms/:userId", async (req, res) => {
     }
 
     const rooms = await ChatRoom.find({ members: { $in: [userId] } })
-      .sort({ updatedAt: -1 }) // Sort by most recent update
-      .populate("members", "name email"); // Populate user info
+      .sort({ updatedAt: -1 })
+      .populate("members", "name email")
+      .populate("productId", "name images");
 
     console.log(`✔️ Fetched ${rooms.length} chatrooms for user: ${userId}`);
     res.json(rooms);

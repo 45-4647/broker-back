@@ -7,12 +7,17 @@ const chatRoomSchema = new mongoose.Schema(
       required: true,
       ref:"User"
     },
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      default: null,
+    },
     lastMessage: {
       type: String,
       default: "",
     },
     unreadCount: {
-      type: Map, // stores unread count per user
+      type: Map,
       of: Number,
       default: {},
     },
