@@ -124,6 +124,28 @@ router.get("/my", verifyToken, async (req, res) => {
   }
 });
 
+/* ---------------- ADMIN DELETE ---------------- */
+router.delete("/admin/:id", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin")
+      return res.status(403).json({ message: "Admins only" });
+
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    if (product.imagePublicIds?.length) {
+      for (const id of product.imagePublicIds) {
+        await cloudinary.uploader.destroy(id);
+      }
+    }
+
+    await product.deleteOne();
+    res.json({ message: "Product deleted by admin" });
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting product", error: err });
+  }
+});
+
 /* ---------------- DELETE PRODUCT (SELLER) ---------------- */
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
@@ -144,28 +166,6 @@ router.delete("/:id", verifyToken, async (req, res) => {
     res.json({ message: "Product deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting product", error });
-  }
-});
-
-/* ---------------- ADMIN DELETE ---------------- */
-router.delete("/admin/:id", verifyToken, async (req, res) => {
-  try {
-    if (req.user.role !== "admin")
-      return res.status(403).json({ message: "Admins only" });
-
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
-
-    if (product.imagePublicIds?.length) {
-      for (const id of product.imagePublicIds) {
-        await cloudinary.uploader.destroy(id);
-      }
-    }
-
-    await product.deleteOne();
-    res.json({ message: "Product deleted by admin" });
-  } catch (err) {
-    res.status(500).json({ message: "Error deleting product", error: err });
   }
 });
 

@@ -6,6 +6,7 @@ import http from "http";
 import { Server } from "socket.io";
 import mongoose from "mongoose";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import jwt from "jsonwebtoken";
 
 import { connectDB } from "./config/dbconnect.js"; // Assumes you have a database connection setup in dbconnect.js
 import authRoutes from "./routes/authRoutes.js";
@@ -68,39 +69,72 @@ app.post("/api/chatroom", async (req, res) => {
 });
 
 
-// admin feature
+// admin feature — all routes protected, admin only
+const adminAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer "))
+    return res.status(401).json({ message: "No token" });
+  try {
+    const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
+    if (decoded.role !== "admin")
+      return res.status(403).json({ message: "Admins only" });
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(403).json({ message: "Invalid token" });
+  }
+};
+
 // Products
-app.get("/api/admin/products", async (req, res) => {
-  const products = await Product.find().populate("seller", "name email");
+app.get("/api/admin/products", adminAuth, async (req, res) => {
+  const products = await Product.find().populate("seller", "name email role");
   res.json(products);
 });
 
-// Users
-app.get("/api/admin/users", async (req, res) => {
-  const users = await User.find();
-  res.json(users);
-});
-
-// ChatRooms
-app.get("/api/admin/chatrooms", async (req, res) => {
-  const rooms = await ChatRoom.find();
-  res.json(rooms);
-});
-
-// Delete product
-app.delete("/api/admin/products/:id", async (req, res) => {
+app.delete("/api/admin/products/:id", adminAuth, async (req, res) => {
   await Product.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-// Ban/Delete user
-app.delete("/api/admin/users/:id", async (req, res) => {
+app.put("/api/admin/products/:id", adminAuth, async (req, res) => {
+  try {
+    const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate("seller", "name email");
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: "Update failed" });
+  }
+});
+
+// Users
+app.get("/api/admin/users", adminAuth, async (req, res) => {
+  const users = await User.find().select("-password");
+  res.json(users);
+});
+
+app.delete("/api/admin/users/:id", adminAuth, async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-// Clear chat messages
-app.delete("/api/admin/chatrooms/:id", async (req, res) => {
+app.put("/api/admin/users/:id/role", adminAuth, async (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!["buyer", "seller", "admin"].includes(role))
+      return res.status(400).json({ message: "Invalid role" });
+    const updated = await User.findByIdAndUpdate(req.params.id, { role }, { new: true }).select("-password");
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: "Role update failed" });
+  }
+});
+
+// ChatRooms
+app.get("/api/admin/chatrooms", adminAuth, async (req, res) => {
+  const rooms = await ChatRoom.find();
+  res.json(rooms);
+});
+
+app.delete("/api/admin/chatrooms/:id", adminAuth, async (req, res) => {
   await Message.deleteMany({ roomId: req.params.id });
   await ChatRoom.findByIdAndDelete(req.params.id);
   res.json({ success: true });
