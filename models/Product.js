@@ -4,10 +4,11 @@ const productSchema = new mongoose.Schema(
   {
     
     paymentStatus: {
-  type: String,
-  enum: ["pending", "paid"],
-  default: "pending",
-},
+      type: String,
+      enum: ["pending", "paid"],
+      default: "pending",
+    },
+    tx_ref: { type: String, unique: true, sparse: true }, // idempotency key
     name: { type: String, required: true },
     model: { type: String },
     price: { type: Number, required: true },

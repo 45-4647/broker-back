@@ -121,10 +121,16 @@ router.post(
 /* ---------------- VERIFY CHAPA ---------------- */
 router.get("/chapa/verify", async (req, res) => {
   try {
-    //   const existing = await Product.findOne({ tx_ref });
-   const { tx_ref } = req.query;
+    const { tx_ref } = req.query;
 
     console.log("🔄 VERIFYING PAYMENT:", tx_ref);
+
+    // ✅ Idempotency check — prevent duplicate product on double-call
+    const existing = await Product.findOne({ tx_ref });
+    if (existing) {
+      console.log("⚠️ Product already saved for tx_ref:", tx_ref);
+      return res.json({ success: true });
+    }
 
     const verify = await axios.get(
       `https://api.chapa.co/v1/transaction/verify/${tx_ref}`,
@@ -138,22 +144,17 @@ router.get("/chapa/verify", async (req, res) => {
     console.log("✅ VERIFY RESPONSE:", verify.data);
 
     if (verify.data.status === "success") {
-      const productData = JSON.parse(
-        verify.data.data.meta.productData
-      );
+      const productData = JSON.parse(verify.data.data.meta.productData);
 
-      // ✅ SAVE PRODUCT AFTER PAYMENT
       const newProduct = new Product({
         ...productData,
         paymentStatus: "paid",
-       
+        tx_ref, // store for idempotency
       });
 
       await newProduct.save();
-
       console.log("✅ PRODUCT SAVED");
-
-      return res.json({success:true})
+      return res.json({ success: true });
     }
 
     return res.send("❌ Payment not verified");
@@ -238,12 +239,17 @@ router.post(
 );
 
 router.get("/stripe/verify", async (req, res) => {
-  
   try {
-    
     const { session_id } = req.query;
 
     console.log("🔄 VERIFY STRIPE:", session_id);
+
+    // ✅ Idempotency check — prevent duplicate product on double-call
+    const existing = await Product.findOne({ tx_ref: session_id });
+    if (existing) {
+      console.log("⚠️ Product already saved for session:", session_id);
+      return res.json({ success: true });
+    }
 
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
@@ -253,13 +259,12 @@ router.get("/stripe/verify", async (req, res) => {
       const newProduct = new Product({
         ...productData,
         paymentStatus: "paid",
+        tx_ref: session_id, // store for idempotency
       });
 
       await newProduct.save();
-
       console.log("✅ PRODUCT SAVED (STRIPE)");
-
-      return res.redirect("https://broker-fullstack-3fhb.vercel.app/");
+      return res.json({ success: true });
     }
 
     return res.send("❌ Payment not completed");
