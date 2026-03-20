@@ -108,20 +108,10 @@ router.get("/detail/:id", async (req, res) => {
 });
 
 /* ---------------- CREATE PRODUCT ---------------- */
-router.post("/", verifyToken, upload.single("image"), async (req, res) => {
-  try {
-    const newProduct = new Product({
-      ...req.body,
-      seller: req.user.id,
-      images: req.file ? [req.file.path] : [], // Cloudinary URL
-      imagePublicIds: req.file ? [req.file.filename] : [], // Needed for delete
-    });
-
-    const savedProduct = await newProduct.save();
-    res.status(201).json(savedProduct);
-  } catch (error) {
-    res.status(500).json({ message: "Error creating product", error });
-  }
+router.post("/", verifyToken, (req, res) => {
+  return res.status(403).json({
+    message: "You must pay before posting a product",
+  });
 });
 
 /* ---------------- GET MY PRODUCTS ---------------- */

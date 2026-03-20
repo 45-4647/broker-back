@@ -19,6 +19,7 @@ export const protect = (req, res, next) => {
 export const verifyToken = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    // console.log("the token 👌👌👌"+authHeader)
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Access denied. No token provided." });
@@ -28,7 +29,9 @@ export const verifyToken = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     // console.log(decoded)
 
-    req.user = decoded; // Attach user info (id, email, etc.)
+    req.user = decoded; 
+      console.log("USER:", req.user);
+    // Attach user info (id, email, etc.)
     next();
   } catch (error) {
     return res.status(403).json({ message: "Invalid or expired token" });

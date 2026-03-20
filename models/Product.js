@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
+    
+    paymentStatus: {
+  type: String,
+  enum: ["pending", "paid"],
+  default: "pending",
+},
     name: { type: String, required: true },
     model: { type: String },
     price: { type: Number, required: true },
