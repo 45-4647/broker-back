@@ -45,20 +45,24 @@ app.use("/api/products", productRoutes);
 app.post("/api/chatroom", async (req, res) => {
   const { user1, user2, productId } = req.body;
 
+  if (!productId) {
+    return res.status(400).json({ message: "productId is required" });
+  }
+
   try {
-    // scope room to the specific product so different products get separate chats
+    // strictly scope by productId — never reuse a room from a different product
     let room = await ChatRoom.findOne({
       members: { $all: [user1, user2] },
-      productId: productId || null,
+      productId: productId,
     });
 
     if (!room) {
-      room = new ChatRoom({ members: [user1, user2], productId: productId || null });
+      room = new ChatRoom({ members: [user1, user2], productId });
       room.members.forEach(memberId => {
         room.unreadCount[memberId] = 0;
       });
       await room.save();
-      console.log(`✔️ New chatroom created with ID: ${room._id}`);
+      console.log(`✔️ New chatroom created: ${room._id} for product: ${productId}`);
     }
 
     res.json(room);
@@ -219,18 +223,15 @@ app.delete("/api/chatrooms/:roomId", async (req, res) => {
 // import ChatRoom from "../models/ChatRoom.js";
 
 app.post("/api/chatrooms/findOrCreate", async (req, res) => {
-  const { members } = req.body; // [buyerId, sellerId]
+  const { members, productId } = req.body;
   if (!members || members.length !== 2) return res.status(400).json({ message: "Members required" });
+  if (!productId) return res.status(400).json({ message: "productId required" });
 
   try {
-    // Find existing room
-    let room = await ChatRoom.findOne({ members: { $all: members, $size: 2 } });
-    console.log(room)
+    let room = await ChatRoom.findOne({ members: { $all: members, $size: 2 }, productId });
     if (!room) {
-      // Create new room
-      room = await ChatRoom.create({ members });
+      room = await ChatRoom.create({ members, productId });
     }
-
     res.json(room);
   } catch (err) {
     console.error(err);
