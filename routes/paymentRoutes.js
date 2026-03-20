@@ -85,8 +85,8 @@ router.post(
 
           tx_ref,
 
-          callback_url: `http://localhost:5000/api/payment/chapa/verify?tx_ref=${tx_ref}`,
-          return_url: `http://localhost:3001/payment-success?tx_ref=${tx_ref}`,
+          callback_url: `https://broker-back.onrender.com/api/payment/chapa/verify?tx_ref=${tx_ref}`,
+          return_url: `https://broker-fullstack-3fhb.vercel.app/payment-success?tx_ref=${tx_ref}`,
 
           meta: {
             productData: JSON.stringify(productData),
@@ -216,8 +216,8 @@ router.post(
           },
         ],
 
-        success_url: `http://localhost:3001/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `http://localhost:3001/post-product`,
+        success_url: `https://broker-fullstack-3fhb.vercel.app/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `https://broker-fullstack-3fhb.vercel.app/post-product`,
 
         metadata: {
           productData: JSON.stringify(productData),
@@ -259,7 +259,7 @@ router.get("/stripe/verify", async (req, res) => {
 
       console.log("✅ PRODUCT SAVED (STRIPE)");
 
-      return res.redirect("http://localhost:3001/");
+      return res.redirect("https://broker-fullstack-3fhb.vercel.app/");
     }
 
     return res.send("❌ Payment not completed");
