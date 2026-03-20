@@ -85,7 +85,7 @@ router.post(
 
           tx_ref,
 
-          callback_url: `https://broker-back.onrender.com/api/payment/chapa/verify?tx_ref=${tx_ref}`,
+          // No callback_url — product is saved only via frontend verify call
           return_url: `https://broker-fullstack.vercel.app/payment-success?tx_ref=${tx_ref}`,
 
           meta: {
