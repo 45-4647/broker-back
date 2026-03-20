@@ -122,23 +122,11 @@ router.post(
 router.get("/chapa/verify", async (req, res) => {
   try {
     const { tx_ref } = req.query;
-
     console.log("🔄 VERIFYING PAYMENT:", tx_ref);
-
-    // ✅ Idempotency check — prevent duplicate product on double-call
-    const existing = await Product.findOne({ tx_ref });
-    if (existing) {
-      console.log("⚠️ Product already saved for tx_ref:", tx_ref);
-      return res.json({ success: true });
-    }
 
     const verify = await axios.get(
       `https://api.chapa.co/v1/transaction/verify/${tx_ref}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
-        },
-      }
+      { headers: { Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}` } }
     );
 
     console.log("✅ VERIFY RESPONSE:", verify.data);
@@ -146,14 +134,17 @@ router.get("/chapa/verify", async (req, res) => {
     if (verify.data.status === "success") {
       const productData = JSON.parse(verify.data.data.meta.productData);
 
-      const newProduct = new Product({
-        ...productData,
-        paymentStatus: "paid",
-        tx_ref, // store for idempotency
-      });
+      try {
+        await Product.create({ ...productData, paymentStatus: "paid", tx_ref });
+        console.log("✅ PRODUCT SAVED");
+      } catch (err) {
+        if (err.code === 11000) {
+          console.log("⚠️ Duplicate — product already saved for tx_ref:", tx_ref);
+        } else {
+          throw err;
+        }
+      }
 
-      await newProduct.save();
-      console.log("✅ PRODUCT SAVED");
       return res.json({ success: true });
     }
 
@@ -241,29 +232,24 @@ router.post(
 router.get("/stripe/verify", async (req, res) => {
   try {
     const { session_id } = req.query;
-
     console.log("🔄 VERIFY STRIPE:", session_id);
-
-    // ✅ Idempotency check — prevent duplicate product on double-call
-    const existing = await Product.findOne({ tx_ref: session_id });
-    if (existing) {
-      console.log("⚠️ Product already saved for session:", session_id);
-      return res.json({ success: true });
-    }
 
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
     if (session.payment_status === "paid") {
       const productData = JSON.parse(session.metadata.productData);
 
-      const newProduct = new Product({
-        ...productData,
-        paymentStatus: "paid",
-        tx_ref: session_id, // store for idempotency
-      });
+      try {
+        await Product.create({ ...productData, paymentStatus: "paid", tx_ref: session_id });
+        console.log("✅ PRODUCT SAVED (STRIPE)");
+      } catch (err) {
+        if (err.code === 11000) {
+          console.log("⚠️ Duplicate — product already saved for session:", session_id);
+        } else {
+          throw err;
+        }
+      }
 
-      await newProduct.save();
-      console.log("✅ PRODUCT SAVED (STRIPE)");
       return res.json({ success: true });
     }
 
