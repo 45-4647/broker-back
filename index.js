@@ -41,32 +41,38 @@ app.use("/api/products", productRoutes);
 
 // ------------------ CHAT ROUTES ------------------
 
-// Create or get a chat room between two users
+// Create or get a chat room — strictly scoped per product, atomic upsert
 app.post("/api/chatroom", async (req, res) => {
   const { user1, user2, productId } = req.body;
 
-  if (!productId) {
-    return res.status(400).json({ message: "productId is required" });
+  if (!user1 || !user2 || !productId) {
+    return res.status(400).json({ message: "user1, user2 and productId are required" });
   }
 
   try {
-    // strictly scope by productId — never reuse a room from a different product
-    let room = await ChatRoom.findOne({
-      members: { $all: [user1, user2] },
-      productId: productId,
-    });
+    // sort members so [A,B] and [B,A] always produce the same document
+    const members = [String(user1), String(user2)].sort();
+
+    // find existing room first
+    let room = await ChatRoom.findOne({ members, productId });
 
     if (!room) {
-      room = new ChatRoom({ members: [user1, user2], productId });
-      room.members.forEach(memberId => {
-        room.unreadCount[memberId] = 0;
+      room = await ChatRoom.create({
+        members,
+        productId,
+        unreadCount: { [user1]: 0, [user2]: 0 },
       });
-      await room.save();
-      console.log(`✔️ New chatroom created: ${room._id} for product: ${productId}`);
+      console.log(`✔️ New room: ${room._id} for product: ${productId}`);
     }
 
     res.json(room);
   } catch (error) {
+    // duplicate key — another request created it simultaneously, fetch and return it
+    if (error.code === 11000) {
+      const members = [String(user1), String(user2)].sort();
+      const room = await ChatRoom.findOne({ members, productId });
+      return res.json(room);
+    }
     console.error("❌ Error creating chat room:", error);
     res.status(500).json({ message: "Server error creating chat room" });
   }
@@ -132,6 +138,12 @@ app.put("/api/admin/users/:id/role", adminAuth, async (req, res) => {
   }
 });
 
+// One-time cleanup: delete old rooms that have no productId (legacy data)
+app.delete("/api/admin/chatrooms/cleanup", adminAuth, async (req, res) => {
+  const result = await ChatRoom.deleteMany({ productId: null });
+  res.json({ deleted: result.deletedCount });
+});
+
 // ChatRooms
 app.get("/api/admin/chatrooms", adminAuth, async (req, res) => {
   const rooms = await ChatRoom.find();
@@ -145,6 +157,19 @@ app.delete("/api/admin/chatrooms/:id", adminAuth, async (req, res) => {
 });
 
 
+
+// Get a single chat room by ID (with product + member info)
+app.get("/api/chatroom/:roomId", async (req, res) => {
+  try {
+    const room = await ChatRoom.findById(req.params.roomId)
+      .populate("members", "name email")
+      .populate("productId", "name images");
+    if (!room) return res.status(404).json({ message: "Room not found" });
+    res.json(room);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching room" });
+  }
+});
 
 // Get all chat rooms for a user
 app.get("/api/chatrooms/:userId", async (req, res) => {
@@ -184,7 +209,7 @@ app.get("/api/messages/:roomId", async (req, res) => {
       return res.status(404).json({ message: "Chatroom not found" });
     }
 
-    const messages = await Message.find({ chatroom: room._id }).populate("sender", "name email").sort({ createdAt: 1 }); // Sort by oldest first
+    const messages = await Message.find({ roomId: room._id }).populate("sender", "name email").sort({ createdAt: 1 });
 
     console.log(`✔️ Fetched ${messages.length} messages for room: ${roomId}`);
     res.json(messages);
@@ -210,8 +235,7 @@ app.delete("/api/chatrooms/:roomId", async (req, res) => {
       return res.status(404).send({ message: "Chat room not found" });
     }
 
-    // Optionally delete associated messages
-    await Message.deleteMany({ chatroom: roomId });
+    await Message.deleteMany({ roomId: roomId });
 
     res.status(200).send({ message: "Chat room deleted successfully" });
   } catch (error) {

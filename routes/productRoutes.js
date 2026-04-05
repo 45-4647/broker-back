@@ -28,65 +28,50 @@ const upload = multer({ storage });
 
 
 
-// GET all products with AI recommendations
+// GET all products — respond immediately, AI runs with a tight timeout
 router.get("/", async (req, res) => {
   try {
     const products = await Product.find()
       .populate("seller", "name email")
       .lean();
 
-    let recommendedProducts = [];
+    // Simple fast fallback: newest 5 paid products
+    const fallback = [...products]
+      .filter(p => p.paymentStatus === "paid")
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 5);
+
+    // Try AI with a 3s hard timeout — if it takes longer, use fallback
+    let recommendedProducts = fallback;
 
     try {
-      // === AI RECOMMENDATION TRY ===
-      const prompt = `
-        From the list below, select the 5 most relevant products.
-        Return only a JSON array of product IDs.
-
-        Products:
-        ${JSON.stringify(
-          products.map(p => ({
-            _id: p._id,
-            title: p.title || p.name,
-            description: p.description,
-            category: p.category
-          }))
-        )}
-      `;
-
-      const response = await openai.chat.completions.create({
+      const aiPromise = openai.chat.completions.create({
         model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
+        messages: [{
+          role: "user",
+          content: `From the list below, select the 5 most relevant products. Return only a JSON array of product IDs.\n\nProducts:\n${JSON.stringify(products.map(p => ({ _id: p._id, title: p.name, description: p.description, category: p.category })))}`
+        }],
         max_tokens: 200
       });
 
-      const ids = JSON.parse(
-        response.choices[0].message.content.trim()
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("AI timeout")), 3000)
       );
 
-      recommendedProducts = products.filter(p =>
-        ids.includes(p._id.toString())
-      );
+      const response = await Promise.race([aiPromise, timeoutPromise]);
+      const ids = JSON.parse(response.choices[0].message.content.trim());
+      const aiPicks = products.filter(p => ids.includes(p._id.toString()));
+      if (aiPicks.length > 0) recommendedProducts = aiPicks;
 
-    } catch (aiError) {
-      console.warn("⚠️ AI unavailable, using fallback logic");
-
-      // === FALLBACK LOGIC ===
-      recommendedProducts = products
-        .filter(p => p.views > 10 || p.createdAt)
-        .slice(0, 5);
+    } catch {
+      // AI unavailable or timed out — fallback already set
     }
 
-    res.json({
-      allProducts: products,
-      recommended: recommendedProducts
-    });
+    res.json({ allProducts: products, recommended: recommendedProducts });
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      message: "Failed to fetch products"
-    });
+    res.status(500).json({ message: "Failed to fetch products" });
   }
 });
 
