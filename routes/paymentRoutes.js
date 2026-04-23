@@ -55,6 +55,10 @@ router.post(
 
       const tx_ref = "tx-" + Date.now();
 
+      // 3% of product price, minimum 10 ETB
+      const productPrice = parseFloat(req.body.price) || 0;
+      const fee = Math.max(Math.round(productPrice * 0.03), 10);
+
       // ✅ SAFE PRODUCT DATA BUILD
       const productData = {
         name: req.body.name,
@@ -75,7 +79,7 @@ router.post(
       const response = await axios.post(
         "https://api.chapa.co/v1/transaction/initialize",
         {
-          amount: "200",
+          amount: String(fee),
           currency: "ETB",
 
           // 🔥 use logged-in user (fallback safe)
@@ -190,19 +194,21 @@ router.post(
         imagePublicIds: req.file ? [req.file.filename] : [],
       };
 
+      const productPrice = parseFloat(req.body.price) || 0;
+      const feeETB = Math.max(Math.round(productPrice * 0.03), 10);
+      // convert ETB to USD cents (1 USD ≈ 57 ETB), minimum 50 cents
+      const feeUSDCents = Math.max(Math.round((feeETB / 57) * 100), 50);
+
       // ✅ Create Stripe Checkout Session
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
-
         line_items: [
           {
             price_data: {
               currency: "usd",
-              product_data: {
-                name: "Product Promotion Fee",
-              },
-              unit_amount: 500 * 100, // $5 (adjust if needed)
+              product_data: { name: "Product Promotion Fee (3%)" },
+              unit_amount: feeUSDCents,
             },
             quantity: 1,
           },
