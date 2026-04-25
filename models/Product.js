@@ -15,6 +15,8 @@ const productSchema = new mongoose.Schema(
     category: { type: String },
     condition: { type: String, enum: ["New", "Used"], required: true },
     location: { type: String, required: true },
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
     description: { type: String },
     images: [{ type: String }],
     imagePublicIds: [String], // Cloudinary URLs   

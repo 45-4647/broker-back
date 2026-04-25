@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: { type: String, enum: ["buyer", "seller", "admin"], default: "buyer" },
     phone: { type: String },
-    profileImage: { type: String },
+    profileImage: { type: String, default: null },
+    profileImagePublicId: { type: String, default: null },
   },
   { timestamps: true }
 );
