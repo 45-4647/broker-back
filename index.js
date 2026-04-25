@@ -50,31 +50,21 @@ app.post("/api/chatroom", async (req, res) => {
   }
 
   try {
-    // sort members so [A,B] and [B,A] always produce the same document
     const members = [String(user1), String(user2)].sort();
 
-    // find existing room first
+    // Try to find existing room first
     let room = await ChatRoom.findOne({ members, productId });
 
+    // Create if not found
     if (!room) {
-      room = await ChatRoom.create({
-        members,
-        productId,
-        unreadCount: { [user1]: 0, [user2]: 0 },
-      });
+      room = await ChatRoom.create({ members, productId, unreadCount: {}, lastMessage: "" });
       console.log(`✔️ New room: ${room._id} for product: ${productId}`);
     }
 
     res.json(room);
   } catch (error) {
-    // duplicate key — another request created it simultaneously, fetch and return it
-    if (error.code === 11000) {
-      const members = [String(user1), String(user2)].sort();
-      const room = await ChatRoom.findOne({ members, productId });
-      return res.json(room);
-    }
-    console.error("❌ Error creating chat room:", error);
-    res.status(500).json({ message: "Server error creating chat room" });
+    console.error("❌ Error creating chat room:", error.message);
+    res.status(500).json({ message: error.message });
   }
 });
 

@@ -25,7 +25,7 @@ const chatRoomSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// compound unique index: one room per (sorted members + product)
-chatRoomSchema.index({ members: 1, productId: 1 }, { unique: true });
+// compound index for fast lookup (not unique — deduplication handled in code)
+chatRoomSchema.index({ members: 1, productId: 1 });
 
 export default mongoose.model("ChatRoom", chatRoomSchema);
