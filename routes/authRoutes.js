@@ -61,6 +61,8 @@ router.delete("/me/avatar", verifyToken, async (req, res) => {
     res.status(500).json({ message: "Error removing avatar" });
   }
 });
+
+router.put("/me", verifyToken, async (req, res) => {
   try {
     const { name, phone } = req.body;
     const updated = await User.findByIdAndUpdate(
