@@ -32,7 +32,7 @@ export const login = async (req, res) => {
 
     res.status(200).json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage || null },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
