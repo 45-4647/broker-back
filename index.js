@@ -29,7 +29,14 @@ app.use(express.json());
 
 // Connect to the Database
 connectDB()
-  .then(() => console.log("🟢 Connected to MongoDB"))
+  .then(async () => {
+    console.log("🟢 Connected to MongoDB");
+    // Drop legacy unique index that causes chat room creation to fail
+    try {
+      await mongoose.connection.collection("chatrooms").dropIndex("members_1_productId_1");
+      console.log("✔️ Dropped legacy chatroom index");
+    } catch (_) { /* already dropped or never existed */ }
+  })
   .catch((err) => console.error("🔴 MongoDB connection error:", err));
 
 // Routes
@@ -52,12 +59,25 @@ app.post("/api/chatroom", async (req, res) => {
   try {
     const members = [String(user1), String(user2)].sort();
 
-    // Try to find existing room first
-    let room = await ChatRoom.findOne({ members, productId });
+    // Use $all for array matching — finds room regardless of member order
+    let room = await ChatRoom.findOne({
+      members: { $all: members, $size: 2 },
+      productId,
+    });
 
-    // Create if not found
     if (!room) {
-      room = await ChatRoom.create({ members, productId, unreadCount: {}, lastMessage: "" });
+      // Drop any conflicting unique index before creating (handles legacy index)
+      try {
+        await ChatRoom.collection.dropIndex("members_1_productId_1");
+        console.log("✔️ Dropped legacy unique index");
+      } catch (_) { /* index may not exist, ignore */ }
+
+      room = await ChatRoom.create({
+        members,
+        productId,
+        unreadCount: {},
+        lastMessage: "",
+      });
       console.log(`✔️ New room: ${room._id} for product: ${productId}`);
     }
 
