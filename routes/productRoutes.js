@@ -78,6 +78,39 @@ router.get("/", async (req, res) => {
 
 
 
+/* ---------------- GET SELLER'S OTHER PRODUCTS ---------------- */
+router.get("/seller/:sellerId", async (req, res) => {
+  try {
+    const products = await Product.find({
+      seller: req.params.sellerId,
+      _id: { $ne: req.query.exclude },
+      paymentStatus: "paid",
+    })
+      .populate("seller", "name")
+      .limit(6)
+      .lean();
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching seller products" });
+  }
+});
+
+/* ---------------- GET RELATED PRODUCTS ---------------- */
+router.get("/related/:category", async (req, res) => {
+  try {
+    const products = await Product.find({
+      category: req.params.category,
+      _id: { $ne: req.query.exclude },
+      paymentStatus: "paid",
+    })
+      .limit(6)
+      .lean();
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching related products" });
+  }
+});
+
 /* ---------------- GET SINGLE PRODUCT ---------------- */
 router.get("/detail/:id", async (req, res) => {
   try {
